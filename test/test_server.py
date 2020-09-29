@@ -19,6 +19,9 @@ TEST_APP = None
 TEMP_GIT_REPO_PATH = os.path.join(tempfile.gettempdir(), "scriptrepository_unittest")
 # Temporary git repository path
 TEMP_GIT_REMOTE_PATH = os.path.join(tempfile.gettempdir(), "scriptrepository_unittest_remote")
+#
+GIT_USERNAME = "unittest"
+GIT_EMAIL = "builder@email.com"
 
 SCRIPT_CONTENT = \
 """
@@ -45,18 +48,19 @@ def _setup_test_git_repos():
     subp.check_output("git init", stderr=subp.STDOUT, shell=True)
     # Create a commit so we can use reset
     readme = os.path.join(TEMP_GIT_REMOTE_PATH, "README.md")
-    open(readme, 'w').write("foo")
-    subp.check_output("git add .; git commit -m'Initial commit';exit 0",
+    with open(readme, 'w') as readme_file:
+        readme_file.write("foo")
+    subp.check_output(f"git add .; git -c user.name='{GIT_USERNAME}' -c user.email={GIT_EMAIL} commit -m'Initial commit'",
                             stderr=subp.STDOUT, shell=True)
     # Chcekout out to some commit directly so that pushing to master is allowed
-    sha1 = subp.check_output("git rev-parse HEAD;exit 0",
-                            stderr=subp.STDOUT, shell=True)
-    FIRST_COMMIT = sha1.rstrip()
-    subp.check_output("git checkout {0};exit 0".format(FIRST_COMMIT),
-                            stderr=subp.STDOUT, shell=True)
+    sha1 = subp.check_output("git rev-parse HEAD",
+                             stderr=subp.STDOUT, shell=True)
+    FIRST_COMMIT = str(sha1.rstrip(), encoding='utf-8')
+    subp.check_output(f"git checkout {FIRST_COMMIT}",
+                      stderr=subp.STDOUT, shell=True)
     # Clone this so that the clone will have a remote
     os.chdir(os.path.dirname(TEMP_GIT_REPO_PATH))
-    cmd = "git clone {0} {1}; exit 0".format(TEMP_GIT_REMOTE_PATH, TEMP_GIT_REPO_PATH)
+    cmd = f"git clone {TEMP_GIT_REMOTE_PATH} {TEMP_GIT_REPO_PATH}"
     subp.check_output(cmd, stderr=subp.STDOUT, shell=True)
 
     # Go back to where we started
@@ -66,11 +70,22 @@ def _setup_test_git_repos():
 class ScriptUploadServerTest(unittest.TestCase):
 
     def setUp(self):
-        _setup_test_git_repos()
+        try:
+            _setup_test_git_repos()
+        except Exception as exc:
+            print(f"Failed to setup temporary git repo : {exc}")
+            self.tearDown()
 
     def tearDown(self):
-        shutil.rmtree(TEMP_GIT_REPO_PATH)
-        shutil.rmtree(TEMP_GIT_REMOTE_PATH)
+        try:
+            shutil.rmtree(TEMP_GIT_REPO_PATH)
+        except OSError as exc:
+            print(f"Failed to remove temporary git repo : {exc}")
+
+        try:
+            shutil.rmtree(TEMP_GIT_REMOTE_PATH)
+        except OSError as exc:
+            print(f"Failed to remove temporary remote git repo : {exc}")
 
     # ---------------- Success cases ---------------------
 
@@ -78,7 +93,10 @@ class ScriptUploadServerTest(unittest.TestCase):
         extra_environ = {"SCRIPT_REPOSITORY_PATH": TEMP_GIT_REPO_PATH}
         data = dict(author='Joe Bloggs', mail='first.last@domain.com', comment='Added new file', path='./')
         response = TEST_APP.post('/', extra_environ=extra_environ,
-                                 params=data, upload_files=[("file", "userscript.py", SCRIPT_CONTENT)], status='*')
+                                 params=data,
+                                 upload_files=[("file", "userscript.py",
+                                                SCRIPT_CONTENT.encode('utf-8'))],
+                                 status='*')
         self.check_replied_content(expected_json=dict(message='success', detail='',
                                                       pub_date=self._now_as_str(), shell=''),
                                    actual_str=response.body)
@@ -92,14 +110,17 @@ class ScriptUploadServerTest(unittest.TestCase):
         # Is the file where we expect it to be
         repo_file = os.path.join(TEMP_GIT_REPO_PATH, "userscript.py")
         self.assertTrue(os.path.exists(repo_file))
-        content = open(repo_file, 'r').read()
-        self.assertEquals(SCRIPT_CONTENT, content)
+        with open(repo_file, 'r') as userscript:
+            content = userscript.read()
+        self.assertEqual(SCRIPT_CONTENT, content)
 
     def test_app_returns_200_for_successful_upload_in_subfolder(self):
         extra_environ = {"SCRIPT_REPOSITORY_PATH": TEMP_GIT_REPO_PATH}
         data = dict(author='Joe Bloggs', mail='first.last@domain.com', comment='Added new file', path='./muon')
         response = TEST_APP.post('/', extra_environ=extra_environ,
-                                 params=data, upload_files=[("file", "userscript.py", SCRIPT_CONTENT)], status='*')
+                                 params=data,
+                                 upload_files=[("file", "userscript.py", SCRIPT_CONTENT.encode('utf-8'))],
+                                 status='*')
         self.check_replied_content(expected_json=dict(message='success', detail='',
                                                       pub_date=self._now_as_str(), shell=''),
                                    actual_str=response.body)
@@ -113,19 +134,22 @@ class ScriptUploadServerTest(unittest.TestCase):
         # Is the file where we expect it to be
         repo_file = os.path.join(TEMP_GIT_REPO_PATH, "muon", "userscript.py")
         self.assertTrue(os.path.exists(repo_file))
-        content = open(repo_file, 'r').read()
-        self.assertEquals(SCRIPT_CONTENT, content)
+        with open(repo_file, 'r') as userscript:
+            content = userscript.read()
+
+        self.assertEqual(SCRIPT_CONTENT, content)
 
     def test_app_returns_200_for_successful_remove_request(self):
         # Commit test file
         repo_file = os.path.join(TEMP_GIT_REPO_PATH, "muon", "userscript.py")
         os.mkdir(os.path.dirname(repo_file))
-        open(repo_file, 'w').write("foo")
+        with open(repo_file, 'w') as userscript:
+            userscript.write("foo")
         start_dir = os.getcwd()
         os.chdir(TEMP_GIT_REPO_PATH)
         author = 'Joe Bloggs'
         mail = 'first.last@domain.com'
-        subp.check_output('git add .; git commit -m"Added new file" --author="{0} <{1}>"; git push origin master; exit 0'.format(author, mail),
+        subp.check_output('git add .; git commit -m"Added new file" --author="{0} <{1}>"; git push origin master'.format(author, mail),
                           stderr=subp.STDOUT, shell=True)
         os.chdir(start_dir)
 
@@ -152,7 +176,9 @@ class ScriptUploadServerTest(unittest.TestCase):
         # Commit test file
         repo_file = os.path.join(TEMP_GIT_REPO_PATH, "muon", "userscript.py")
         os.mkdir(os.path.dirname(repo_file))
-        open(repo_file, 'w').write("foo")
+        with open(repo_file, 'w') as userscript:
+            userscript.write("foo")
+
         start_dir = os.getcwd()
         os.chdir(TEMP_GIT_REPO_PATH)
         author = 'Joe Bloggs'
@@ -164,7 +190,9 @@ class ScriptUploadServerTest(unittest.TestCase):
         extra_environ = {"SCRIPT_REPOSITORY_PATH": TEMP_GIT_REPO_PATH}
         data = dict(author=author, mail=mail, comment='Updated file', path='./muon')
         response = TEST_APP.post('/', extra_environ=extra_environ,
-                                 params=data, upload_files=[("file", "userscript.py", SCRIPT_CONTENT)], status='*')
+                                 params=data,
+                                 upload_files=[("file", "userscript.py", SCRIPT_CONTENT.encode('utf-8'))],
+                                 status='*')
         self.check_replied_content(expected_json=dict(message='success', detail='',
                                                       pub_date=self._now_as_str(), shell=''),
                                    actual_str=response.body)
@@ -184,10 +212,12 @@ class ScriptUploadServerTest(unittest.TestCase):
         remote_file = os.path.join(TEMP_GIT_REMOTE_PATH, "muon", "userscript.py")
         self.assertTrue(os.path.exists(repo_file))
         self.assertTrue(os.path.exists(remote_file))
-        repo_content = open(repo_file, 'r').read()
-        self.assertEquals(SCRIPT_CONTENT, repo_content)
-        remote_content = open(remote_file, 'r').read()
-        self.assertEquals(SCRIPT_CONTENT, remote_content)
+        with open(repo_file, 'r') as repo_file_handle:
+            repo_content = repo_file_handle.read()
+        self.assertEqual(SCRIPT_CONTENT, repo_content)
+        with open(remote_file, 'r') as remote_file_handle:
+            remote_content = remote_file_handle.read()
+        self.assertEqual(SCRIPT_CONTENT, remote_content)
 
     # ---------------- Failure cases ---------------------
 
@@ -237,7 +267,7 @@ class ScriptUploadServerTest(unittest.TestCase):
         big_script = tempfile.NamedTemporaryFile(delete=False)
         limit = 1024*1024
         for i in range(limit + 1):
-            big_script.write("1")
+            big_script.write(b"1")
         big_script.close()
 
         response = TEST_APP.post('/', extra_environ=extra_environ, expect_errors=True,
@@ -257,7 +287,9 @@ class ScriptUploadServerTest(unittest.TestCase):
         # Commit test file
         repo_file = os.path.join(TEMP_GIT_REPO_PATH, "muon", "userscript.py")
         os.mkdir(os.path.dirname(repo_file))
-        open(repo_file, 'w').write("foo")
+        with open(repo_file, 'w') as userscript:
+            userscript.write("foo")
+
         start_dir = os.getcwd()
         os.chdir(TEMP_GIT_REPO_PATH)
         author = "Jenny Bloggs"
@@ -287,7 +319,8 @@ class ScriptUploadServerTest(unittest.TestCase):
 
     def test_server_without_correct_environment_returns_500_error(self):
         data = dict(author='Joe Bloggs', mail='first.last@domain.com', comment='Test comment', path='./muon')
-        response = TEST_APP.post('/', data, upload_files=[("file", "userscript.py", SCRIPT_CONTENT)],
+        response = TEST_APP.post('/', data,
+                                 upload_files=[("file", "userscript.py", SCRIPT_CONTENT.encode('utf-8'))],
                                  expect_errors=True)
         self.check_replied_content(expected_json=dict(message='Server Error. Please contact Mantid support.', detail='',
                                                       pub_date='', shell=''), actual_str=response.body)
@@ -303,9 +336,9 @@ class ScriptUploadServerTest(unittest.TestCase):
     # -------------------------------------------------------------------------------------------
 
     def check_response(self, expected, actual):
-        self.assertEquals(expected['status'], actual.status)
-        self.assertEquals(expected['content-type'], actual.content_type)
-        self.assertEquals(expected['content-length'], actual.content_length)
+        self.assertEqual(expected['status'], actual.status)
+        self.assertEqual(expected['content-type'], actual.content_type)
+        self.assertEqual(expected['content-length'], actual.content_length)
 
     def check_replied_content(self, expected_json, actual_str):
         actual_json = json.loads(actual_str)
@@ -315,7 +348,7 @@ class ScriptUploadServerTest(unittest.TestCase):
         expected_pub_date = expected_json["pub_date"]
         del expected_json["pub_date"]
 
-        self.assertEquals(expected_json, actual_json)
+        self.assertEqual(expected_json, actual_json)
         # The pub_date is simply checked that the date portion agrees
         if (expected_pub_date != actual_pub_date) and (expected_pub_date != ''):
             # create full datetime objects from both
@@ -325,7 +358,7 @@ class ScriptUploadServerTest(unittest.TestCase):
             except ValueError:
                 self.fail("response pub_date '{0}' cannot be parsed as a datetime object".format(actual_pub_date))
             # Just check the dates
-            self.assertEquals(self._date_as_str(expected_date.date()), self._date_as_str(actual_date))
+            self.assertEqual(self._date_as_str(expected_date.date()), self._date_as_str(actual_date))
 
     def _now_as_str(self):
         return datetime.date.today().strftime("%Y-%b-%d %H:%M:%S")

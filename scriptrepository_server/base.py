@@ -157,7 +157,7 @@ class ServerResponse(object):
         self._create_headers()
 
     def _create_status(self, code):
-        self.status = "{0} {1}".format(str(code), http.client.responses[code])
+        self.status = f"{code} {http.client.responses[code]}"
 
     def _create_headers(self):
         self.headers = [

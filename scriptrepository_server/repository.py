@@ -27,7 +27,7 @@ def _git(cmd, args, username=None, email=None):
 
 def _shellcmd(cmd, args=[]):
     """Use subprocess to call a given command.
-    Return stdout/stderr if an error occurred
+    Return stdout/stderr as a str object if an error occurred
     """
     cmd = [cmd]
     cmd.extend(args)
@@ -37,7 +37,7 @@ def _shellcmd(cmd, args=[]):
         raise RuntimeError(err)
     stdout, stderr = p.communicate()
     if p.returncode == 0:
-        return stdout
+        return str(stdout, encoding='utf-8')
     else:
         raise RuntimeError(stdout + stderr)
 
@@ -116,7 +116,7 @@ class GitRepository(object):
 
     def user_can_delete(self, filename, author, mail):
         with dir_change(self.root):
-            file_owner = _git("log", ['-1', '--format=%an <%ae>', filename]).rstrip()
+            file_owner = _git("log", ['-1', '--format=%an <%ae>', '--', filename]).rstrip()
             req_user = '{0} <{1}>'.format(author, mail)
         return (req_user == file_owner)
 
