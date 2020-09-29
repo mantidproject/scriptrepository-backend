@@ -103,7 +103,8 @@ class ScriptUploadForm(ScriptForm):
             dirpath = os.path.dirname(filepath)
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath)
-            open(filepath, 'wb').write(self.fileitem.file.read())
+            with open(filepath, 'wb') as uploaded:
+                uploaded.write(self.fileitem.file.read())
         except Exception as err:
             return None, ("Unable to write script to disk.", str(err))
 

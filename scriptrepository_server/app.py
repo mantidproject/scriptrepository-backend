@@ -185,7 +185,9 @@ def update_central_repo(local_repo_root, script_form, err_stream):
                              " script to disk - {0}.".format(detail))
             raise InternalServerError()
         log.debug("Wrote new file content to '{}'".format(filepath))
-        log.debug("New content:\n{}".format(open(filepath, 'rb').read()))
+        with open(filepath, 'rb') as uploaded:
+            content = uploaded.read()
+        log.debug("New content:\n{}".format(uploaded))
     else:
         # Treated as a remove request
         filepath = script_form.filepath(local_repo_root)
