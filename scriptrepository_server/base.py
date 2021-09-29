@@ -1,9 +1,9 @@
 """A set of helpers to aid handling a request to upload a script file
 """
-from __future__ import absolute_import, print_function
+
 
 import cgi
-import httplib
+import http.client
 import json
 from logging import getLogger
 import os
@@ -156,7 +156,7 @@ class ServerResponse(object):
         self._create_headers()
 
     def _create_status(self, code):
-        self.status = "{0} {1}".format(str(code), httplib.responses[code])
+        self.status = "{0} {1}".format(str(code), http.client.responses[code])
 
     def _create_headers(self):
         self.headers = [
@@ -170,4 +170,4 @@ class ServerResponse(object):
         shell = shell if shell is not None else ""
         data = dict(message=message, detail=detail,
                     pub_date=pub_date, shell=shell)
-        self.content = json.dumps(data, encoding='utf-8')
+        self.content = json.dumps(data).encode('utf-8')

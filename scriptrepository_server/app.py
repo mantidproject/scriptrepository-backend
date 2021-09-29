@@ -26,12 +26,12 @@ Several query parameters are understood:
  - remove=1: if included the file will be removed rather than uploaded
  - debug=1: if included then the update will happen in the sandbox repository
 """
-from __future__ import absolute_import, print_function
 
-import httplib
+
+import http.client
 import logging
 import traceback
-from urlparse import parse_qs
+from urllib.parse import parse_qs
 import sys
 
 from .base import ScriptFormFactory, ServerResponse
@@ -125,8 +125,8 @@ def handle_post(environ):
 
 def null_handler(environ):
     logging.getLogger(__name__).debug("Unsupported request type")
-    return ServerResponse(httplib.METHOD_NOT_ALLOWED,
-                          message=u'Endpoint is ready to accept form uploads.')
+    return ServerResponse(http.client.METHOD_NOT_ALLOWED,
+                          message='Endpoint is ready to accept form uploads.')
 
 
 # ------------------------------------------------------------------------------
@@ -204,10 +204,10 @@ def update_central_repo(local_repo_root, script_form, err_stream):
     try:
         published_date = git_repo.commit_and_push(commit_info,
                                                   add_changes=script_form.is_upload())
-    except RuntimeError:
+    except RuntimeError as exc:
         err_stream.write("Script repository upload: git error "
                          "- {0}.".format(traceback.format_exc()))
         raise InternalServerError()
 
-    return ServerResponse(httplib.OK, message="success",
+    return ServerResponse(http.client.OK, message="success",
                           published_date=published_date)

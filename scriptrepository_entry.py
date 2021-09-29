@@ -18,7 +18,6 @@ except Exception as exc:
 # Find the application
 sys.path.append(SCRIPTREPOSITORY_SERVER_DIR)
 
-
 # Wrapper application to update the WSGI environ dictionary
 def application(environ, start_response):
     from scriptrepository_server.app import (\

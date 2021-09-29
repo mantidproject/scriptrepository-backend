@@ -1,7 +1,7 @@
 """A set of exception classes to indicate various
 error scenarios
 """
-import httplib
+import http.client
 from .base import ServerResponse
 
 
@@ -26,7 +26,7 @@ class BadRequestException(RequestException):
 
     def __init__(self, summary, detail):
         super(BadRequestException, self).__init__(summary, detail)
-        self.http_error_code = httplib.BAD_REQUEST
+        self.http_error_code = http.client.BAD_REQUEST
 
 
 class InternalServerError(RequestException):
@@ -36,4 +36,4 @@ class InternalServerError(RequestException):
     def __init__(self):
         super(InternalServerError,
               self).__init__(summary='Server Error. Please contact Mantid support.', detail='')
-        self.http_error_code = httplib.INTERNAL_SERVER_ERROR
+        self.http_error_code = http.client.INTERNAL_SERVER_ERROR

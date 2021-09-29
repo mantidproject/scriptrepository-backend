@@ -14,8 +14,14 @@ import time
 # ------------------------------------------------------------------------------
 # Helper Functions
 # ------------------------------------------------------------------------------
-def _git(cmd, args):
+def _git(cmd, args, username=None, email=None):
     args.insert(0, cmd)
+    if username is not None and email is not None:
+        config = ['-c', 'user.name="{0}"'.format(username),
+                  '-c', 'user.email="{0}"'.format(email)]
+        config.extend(args)
+        args = config
+
     return _shellcmd("git", args)
 
 
@@ -116,15 +122,12 @@ class GitRepository(object):
 
     def commit(self, author, email, committer, msg):
         """Commits all of the changes detailed by the CommitInfo object"""
-        author = '--author="{0} <{1}>"'.format(author, email)
+        author_info = '--author="{0} <{1}>"'.format(author, email)
         # We don't need to worry about spaces as each argument
         # is fed through separately to subprocess.Popen
         msg = '-m {0}'.format(msg)
 
-        # Only way to reset the committer without
-        os.environ['GIT_COMMITTER_NAME'] = committer
-        _git('commit', [author, msg])
-        del os.environ["GIT_COMMITTER_NAME"]
+        _git('commit', [author_info, msg], username=author, email=email)
 
     def sync_with_remote(self):
         """After this method call the local repository will match the remote"""
