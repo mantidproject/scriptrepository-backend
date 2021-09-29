@@ -16,9 +16,10 @@ from scriptrepository_server.app import application, initialise_logging
 # Local server
 TEST_APP = None
 # Temporary git repository path
-TEMP_GIT_REPO_PATH = os.path.join(tempfile.gettempdir(), "scriptrepository_unittest")
+TEMP_DIR = os.path.abspath('temp')
+TEMP_GIT_REPO_PATH = os.path.join(TEMP_DIR, "scriptrepository_unittest")
 # Temporary git repository path
-TEMP_GIT_REMOTE_PATH = os.path.join(tempfile.gettempdir(), "scriptrepository_unittest_remote")
+TEMP_GIT_REMOTE_PATH = os.path.join(TEMP_DIR, "scriptrepository_unittest_remote")
 #
 GIT_USERNAME = "unittest"
 GIT_EMAIL = "builder@email.com"
@@ -40,7 +41,7 @@ def setUpModule():
 def _setup_test_git_repos():
     global FIRST_COMMIT
 
-    os.mkdir(TEMP_GIT_REMOTE_PATH)
+    os.makedirs(TEMP_GIT_REMOTE_PATH)
     start_dir = os.getcwd()
 
     # Init the remote
