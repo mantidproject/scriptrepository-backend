@@ -122,12 +122,11 @@ class GitRepository(object):
 
     def commit(self, author, email, committer, msg):
         """Commits all of the changes detailed by the CommitInfo object"""
-        author_info = '--author="{0} <{1}>"'.format(author, email)
         # We don't need to worry about spaces as each argument
         # is fed through separately to subprocess.Popen
         msg = '-m {0}'.format(msg)
 
-        _git('commit', [author_info, msg], username=author, email=email)
+        _git('commit', [msg], username=author, email=email)
 
     def sync_with_remote(self):
         """After this method call the local repository will match the remote"""
