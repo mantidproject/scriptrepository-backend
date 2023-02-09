@@ -1,4 +1,4 @@
-# ScriptRepository Uploader Backend - upload.mantidproject.org
+# ScriptRepository Uploader Backend.
 
 Here you will find the web application that is responsible for interacting
 with Mantid and the scriptrepository to allow uploading of new files.
@@ -9,6 +9,8 @@ but it requires the `git` command to be accessible and executable.
 The application can be run standalone but in production it is designed to be
 executed by a webserver supporting the
 [wsgi](https://wsgi.readthedocs.io/en/latest/what.html) interface.
+
+The production instance is deployed to listed at https://upload.mantidproject.org.
 
 ## Local Development Setup
 
