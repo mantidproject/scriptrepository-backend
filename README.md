@@ -1,4 +1,4 @@
-# ScriptRepository Uploader Backend.
+# ScriptRepository Uploader Backend
 
 Here you will find the web application that is responsible for interacting
 with Mantid and the scriptrepository to allow uploading of new files.
